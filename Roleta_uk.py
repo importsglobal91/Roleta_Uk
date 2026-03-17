@@ -161,4 +161,4 @@ async def receber_resultado(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     try:
         numero = int(partes[0])
-    except V
+    except Exception as e:  # ou except ValueError: dependendo do que você queria
