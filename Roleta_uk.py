@@ -1,9 +1,4 @@
-
 import os
-# ...
-TOKEN = os.getenv("TOKEN")
-
-
 from dataclasses import dataclass, field
 from telegram import Update
 from telegram.ext import (
@@ -13,6 +8,9 @@ from telegram.ext import (
     ContextTypes,
     filters,
 )
+
+# Token vem da variável de ambiente TOKEN (Render)
+TOKEN = os.getenv("TOKEN")
 
 TIPOS_MERCADO = ["cor", "paridade", "faixa"]
 
@@ -146,8 +144,6 @@ greens = 0
 reds = 0
 greens_seguidos = 0
 
-TOKEN = "8792963382:AAF2rxy7oZw0f6cYT2Lg2xP0aznAUTL7JE4"
-
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
@@ -165,80 +161,4 @@ async def receber_resultado(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     try:
         numero = int(partes[0])
-    except ValueError:
-        await update.message.reply_text("Número inválido. Use algo como: 13 vermelho")
-        return
-
-    cor = partes[1]
-    if cor not in ["vermelho", "preto", "zero"]:
-        await update.message.reply_text("Cor inválida. Use: vermelho, preto ou zero")
-        return
-
-    mensagens = estrategia.processar_resultado(numero, cor)
-
-    if not mensagens:
-        await update.message.reply_text("Resultado registrado.")
-    else:
-        for msg in mensagens:
-            await update.message.reply_text(msg)
-
-
-async def cmd_green(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    global greens, greens_seguidos
-    greens += 1
-    greens_seguidos += 1
-    await update.message.reply_text(
-        f"✅ Green registrado! Greens: {greens} | Reds: {reds} | Greens seguidos: {greens_seguidos}"
-    )
-
-
-async def cmd_red(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    global reds, greens_seguidos
-    reds += 1
-    greens_seguidos = 0
-    await update.message.reply_text(
-        f"❌ Red registrado! Greens: {greens} | Reds: {reds} | Greens seguidos: {greens_seguidos}"
-    )
-
-
-async def cmd_placar(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    total = greens + reds
-    if total == 0:
-        perc = 0
-    else:
-        perc = round(greens * 100 / total, 2)
-
-    texto = (
-        "🚀 Placar do dia\n"
-        f"🟢 Greens: {greens}\n"
-        f"🔴 Reds: {reds}\n"
-        f"🎯 Acerto: {perc}%\n"
-        f"💰 Greens seguidos: {greens_seguidos}"
-    )
-    await update.message.reply_text(texto)
-
-
-async def cmd_reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    global greens, reds, greens_seguidos
-    greens = 0
-    reds = 0
-    greens_seguidos = 0
-    await update.message.reply_text("🔁 Placar do dia resetado!")
-
-
-def main():
-    app = ApplicationBuilder().token(TOKEN).build()
-
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("green", cmd_green))
-    app.add_handler(CommandHandler("red", cmd_red))
-    app.add_handler(CommandHandler("placar", cmd_placar))
-    app.add_handler(CommandHandler("reset", cmd_reset))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, receber_resultado))
-
-    print("Bot rodando...")
-    app.run_polling()
-
-
-if __name__ == "__main__":
-    main()
+    except V
