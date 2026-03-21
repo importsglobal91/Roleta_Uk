@@ -29,23 +29,21 @@ class BotMultiRoleta:
         self.chat_id = None
         
         self.roletas_nomes = [
-            self.roletas_nomes = [
-    "Roleta 32vermelha",
-    "Roleta Relâmpago",
-    "Auto-Roulette",
-    "Roleta VIP",
-    "Roleta Dragonara",
-    "Roleta Francesa",
-    "Roleta Americana",
-    "Mega Roleta",
-    "Red Door Roulette",
-    "Roulette Macao",
-    "Gold Vault Roulette",
-    "XXXtreme Lightning Roulette",
-    "Speed Auto Roulette",
-    "Power Up Roulette",
-    "Lightning Roulette",
-]
+            "Roleta 32vermelha",
+            "Roleta Relâmpago",
+            "Auto-Roulette",
+            "Roleta VIP",
+            "Roleta Dragonara",
+            "Roleta Francesa",
+            "Roleta Americana",
+            "Mega Roleta",
+            "Red Door Roulette",
+            "Roulette Macao",
+            "Gold Vault Roulette",
+            "XXXtreme Lightning Roulette",
+            "Speed Auto Roulette",
+            "Power Up Roulette",
+            "Lightning Roulette",
         ]
         
         for nome in self.roletas_nomes:
@@ -100,8 +98,19 @@ class BotMultiRoleta:
         
         print(f"[{nome_roleta}] Nº: {numero} | Seq: {roleta.contagem}x | Rodadas: {roleta.rodadas}")
         
-        # Envia atualização a cada 2 números
-        if self.context and self.chat_id and roleta.contagem % 2 == 0:
+        # Aviso na 9ª sequência
+        if roleta.contagem == 9:
+            try:
+                await self.context.bot.send_message(
+                    chat_id=self.chat_id,
+                    text=f"⚠️ **ATENÇÃO!** *[{nome_roleta}]* Próxima é a 10ª! Nº: `{numero}` | Seq: `9x`",
+                    parse_mode="Markdown"
+                )
+            except:
+                pass
+        
+        # Envia atualização a cada 2 números (exceto na 9ª)
+        if self.context and self.chat_id and roleta.contagem % 2 == 0 and roleta.contagem != 9:
             try:
                 await self.context.bot.send_message(
                     chat_id=self.chat_id,
@@ -152,8 +161,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     botauto.context = context
     
     msg = (
-        "🎰 **Bot Multi-Roleta 32Red v4.0**\n\n"
-        "**Monitorando 8 roletas em paralelo!**\n\n"
+        "🎰 **Bot Multi-Roleta 32Red v5.0**\n\n"
+        "**Monitorando 15 roletas em paralelo!**\n\n"
         "/iniciar - Ligar monitoramento 24/7\n"
         "/status - Ver status de todas\n"
         "/roletas - Lista de roletas monitoradas\n"
@@ -168,7 +177,7 @@ async def iniciar(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ Bot já está ativo!")
         return
     
-    await update.message.reply_text("⏳ Iniciando monitoramento de 8 roletas...\n(Aguarde 30 segundos)")
+    await update.message.reply_text("⏳ Iniciando monitoramento de 15 roletas...\n(Aguarde 30 segundos)")
     
     try:
         sucesso = await botauto.iniciar_monitoramento()
@@ -210,7 +219,7 @@ async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(msg, parse_mode="Markdown")
 
 async def roletas(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    msg = "🎰 **Roletas Monitoradas:**\n\n"
+    msg = "🎰 **Roletas Monitoradas (15 Total):**\n\n"
     
     for i, nome in enumerate(botauto.roletas_nomes, 1):
         msg += f"{i}. {nome}\n"
@@ -235,7 +244,7 @@ async def parar(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 def main():
     print("\n" + "="*60)
-    print("🎰 BOT MULTI-ROLETA 32RED v4.0")
+    print("🎰 BOT MULTI-ROLETA 32RED v5.0")
     print("="*60)
     print(f"[✓] Token carregado")
     print(f"[✓] Roletas a monitorar: {len(botauto.roletas)}")
