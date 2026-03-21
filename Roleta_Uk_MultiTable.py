@@ -39,6 +39,14 @@ class EstadoEstrategia:
     greens_seguidos: int = 0
     total_tentativas: int = 0
     total_acertos: int = 0
+    historico_numeros: list = None
+    historico_cores: list = None
+    
+    def __post_init__(self):
+        if self.historico_numeros is None:
+            self.historico_numeros = []
+        if self.historico_cores is None:
+            self.historico_cores = []
 
 @dataclass
 class EstadoRoleta:
@@ -62,54 +70,54 @@ class BotMultiRoleta:
                 link=link,
                 cores=EstadoEstrategia("Repetição de Cores"),
                 pares=EstadoEstrategia("Repetição de Pares"),
-                altas=EstadoEstrategia("Repetição de Alta")
+                altas=EstadoEstrategia("Repetição de Altas")
             )
     
     async def iniciar_monitoramento(self) -> bool:
         try:
-            print("[LOG] Iniciando monitoramento de 3 estratégias...")
+            print("[LOG] Iniciando monitoramento com 3 estratégias...")
             hora = datetime.now().strftime("%H:%M:%S")
             
             for nome in self.roletas:
                 self.roletas[nome].hora_inicio = hora
             
             self.ativo = True
-            print(f"[✓] Monitorando {len(self.roletas)} roletas com 3 estratégias")
+            print(f"[✓] Monitorando {len(self.roletas)} roletas")
             return True
         except Exception as e:
             print(f"[✗] Erro: {e}")
             return False
     
-    def obter_cor(self, numero: int) -> str:
+    def obter_cor(self, numero: int) -> tuple:
         if numero == 0:
-            return "Verde"
+            return ("Verde", "G")
         if numero in NUMEROS_VERMELHOS:
-            return "Vermelho"
+            return ("Vermelho", "V")
         else:
-            return "Preto"
+            return ("Preto", "P")
     
-    def obter_paridade(self, numero: int) -> str:
+    def obter_paridade(self, numero: int) -> tuple:
         if numero == 0:
-            return "Zero"
+            return ("Zero", "Z")
         if numero % 2 == 0:
-            return "Par"
+            return ("Par", "PA")
         else:
-            return "Ímpar"
+            return ("Ímpar", "I")
     
-    def obter_range(self, numero: int) -> str:
+    def obter_range(self, numero: int) -> tuple:
         if numero == 0:
-            return "Zero"
+            return ("Zero", "Z")
         if 1 <= numero <= 18:
-            return "Baixa"
+            return ("Baixa", "B")
         else:
-            return "Alta"
+            return ("Alta", "A")
     
     async def gerar_numero(self):
         numero = random.randint(0, 36)
         return numero
     
     async def loop_analise_roleta(self, nome_roleta: str):
-        print(f"[▶️] Monitorando 3 estratégias em: {nome_roleta}")
+        print(f"[▶️] Monitorando: {nome_roleta}")
         
         while self.ativo:
             try:
@@ -118,45 +126,56 @@ class BotMultiRoleta:
                 if numero is not None:
                     await self.processar_numero(nome_roleta, numero)
                 
-                await asyncio.sleep(25)
+                await asyncio.sleep(2)
                 
             except Exception as e:
                 print(f"[✗] Erro em {nome_roleta}: {e}")
-                await asyncio.sleep(10)
+                await asyncio.sleep(2)
     
     async def processar_numero(self, nome_roleta: str, numero: int):
         roleta = self.roletas[nome_roleta]
         
-        # ESTRATÉGIA 1: CORES
-        await self.processar_estrategia(roleta, roleta.cores, self.obter_cor(numero), nome_roleta, "Repetição de Cores")
+        cor_nome, cor_sigla = self.obter_cor(numero)
+        par_nome, par_sigla = self.obter_paridade(numero)
+        range_nome, range_sigla = self.obter_range(numero)
         
-        # ESTRATÉGIA 2: PARES/ÍMPARES
-        await self.processar_estrategia(roleta, roleta.pares, self.obter_paridade(numero), nome_roleta, "Repetição de Pares")
-        
-        # ESTRATÉGIA 3: BAIXA/ALTA
-        await self.processar_estrategia(roleta, roleta.altas, self.obter_range(numero), nome_roleta, "Repetição de Alta")
+        await self.processar_estrategia(roleta, roleta.cores, numero, cor_nome, cor_sigla, nome_roleta, "Repetição de Cores")
+        await self.processar_estrategia(roleta, roleta.pares, numero, par_nome, par_sigla, nome_roleta, "Repetição de Pares")
+        await self.processar_estrategia(roleta, roleta.altas, numero, range_nome, range_sigla, nome_roleta, "Repetição de Altas")
     
-    async def processar_estrategia(self, roleta, estrategia, valor, nome_roleta, tipo_estrategia):
-        if valor in ["Zero"]:
+    async def processar_estrategia(self, roleta, estrategia, numero, valor_nome, valor_sigla, nome_roleta, tipo_estrategia):
+        if valor_nome in ["Zero"]:
             estrategia.contagem = 0
+            estrategia.historico_numeros = []
+            estrategia.historico_cores = []
             return
         
         estrategia.contagem += 1
         estrategia.total_tentativas += 1
         
-        if valor in ["Vermelho", "Preto", "Par", "Ímpar", "Baixa", "Alta"]:
+        if estrategia.contagem == 1:
+            estrategia.historico_numeros = []
+            estrategia.historico_cores = []
+        
+        estrategia.historico_numeros.append(numero)
+        estrategia.historico_cores.append(valor_sigla)
+        
+        if valor_nome in ["Vermelho", "Preto", "Par", "Ímpar", "Baixa", "Alta"]:
             estrategia.total_acertos += 1
         
         # ANALISANDO NA 9ª
         if estrategia.contagem == 9:
             try:
-                percentual = (estrategia.total_acertos / estrategia.total_tentativas * 100) if estrategia.total_tentativas > 0 else 0
+                sequencia_parts = []
+                for num, cor in zip(estrategia.historico_numeros[-9:], estrategia.historico_cores[-9:]):
+                    sequencia_parts.append(f"{num}({cor})")
+                sequencia_str = " | ".join(sequencia_parts)
                 
                 mensagem = (
                     f"📊 **ANALISANDO** 📊\n\n"
                     f"🎨 Estratégia: {tipo_estrategia}\n"
-                    f"🏠 Mesa: [{nome_roleta}]({roleta.link})\n"
-                    f"🎰 Sequência: {' | '.join([str(valor)] * 9)}\n"
+                    f"🏠 Mesa: {nome_roleta}\n"
+                    f"🎰 Sequência: {sequencia_str}\n"
                 )
                 await self.context.bot.send_message(
                     chat_id=self.chat_id,
@@ -173,28 +192,33 @@ class BotMultiRoleta:
             
             percentual = (estrategia.total_acertos / estrategia.total_tentativas * 100) if estrategia.total_tentativas > 0 else 0
             
-            # Instrução específica por tipo
+            sequencia_parts = []
+            for num, cor in zip(estrategia.historico_numeros[-10:], estrategia.historico_cores[-10:]):
+                sequencia_parts.append(f"{num}({cor})")
+            sequencia_str = " | ".join(sequencia_parts)
+            
+            # Instrução específica
             if "Cores" in tipo_estrategia:
-                if valor == "Vermelho":
-                    instrucao = "Entrar após o 13 apostar na cor vermelha"
+                if valor_nome == "Vermelho":
+                    instrucao = f"Entrar após o {estrategia.historico_numeros[-10]} apostar na cor vermelha"
                 else:
-                    instrucao = "Entrar após o 13 apostar na cor preta"
+                    instrucao = f"Entrar após o {estrategia.historico_numeros[-10]} apostar na cor preta"
             elif "Pares" in tipo_estrategia:
-                if valor == "Par":
-                    instrucao = "Entrar após o 18 apostar em números pares"
+                if valor_nome == "Par":
+                    instrucao = f"Entrar após o {estrategia.historico_numeros[-10]} apostar em números pares"
                 else:
-                    instrucao = "Entrar após o 18 apostar em números ímpares"
+                    instrucao = f"Entrar após o {estrategia.historico_numeros[-10]} apostar em números ímpares"
             else:
-                if valor == "Baixa":
-                    instrucao = "Entrar após apostar em números baixos (1-18)"
+                if valor_nome == "Baixa":
+                    instrucao = f"Entrar após apostar em números baixos (1-18)"
                 else:
-                    instrucao = "Entrar após apostar em números altos (19-36)"
+                    instrucao = f"Entrar após apostar em números altos (19-36)"
             
             mensagem = (
                 f"💰 **ENTRADA CONFIRMADA** 💰\n\n"
                 f"🎨 Estratégia: {tipo_estrategia}\n"
                 f"🏠 Mesa: [{nome_roleta}]({roleta.link})\n"
-                f"🎰 Sequência: {' | '.join([str(valor)] * 10)}\n\n"
+                f"🎰 Sequência: {sequencia_str}\n\n"
                 f"💰 {instrucao}\n"
                 f"🏠 Cobrir o zero\n"
                 f"🎲 Fazer até 3 gales\n"
@@ -221,6 +245,8 @@ class BotMultiRoleta:
             )
             
             estrategia.contagem = 0
+            estrategia.historico_numeros = []
+            estrategia.historico_cores = []
     
     def parar(self):
         self.ativo = False
@@ -235,81 +261,38 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = (
         "🎰 **E-GAMES - ROLETA UK** 🎰\n\n"
         "**3 Estratégias em 14 Mesas!**\n\n"
-        "📊 Monitorando:\n"
-        "🎨 Repetição de Cores\n"
-        "🔢 Repetição de Pares/Ímpares\n"
-        "📊 Repetição de Baixa/Alta\n\n"
         "/iniciar - Ligar bot\n"
-        "/status - Ver status\n"
         "/parar - Desligar\n\n"
         "✅ Pronto!"
     )
     await update.message.reply_text(msg, parse_mode="Markdown")
-    print(f"[✓] Chat: {botauto.chat_id}")
 
 async def iniciar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if botauto.ativo:
         await update.message.reply_text("❌ Bot já ativo!")
         return
     
-    await update.message.reply_text("⏳ Iniciando 3 estratégias em 14 mesas...\n(Aguarde 30 segundos)")
+    sucesso = await botauto.iniciar_monitoramento()
     
-    try:
-        sucesso = await botauto.iniciar_monitoramento()
+    if sucesso:
+        for nome in botauto.roletas:
+            asyncio.create_task(botauto.loop_analise_roleta(nome))
         
-        if sucesso:
-            for nome in botauto.roletas:
-                asyncio.create_task(botauto.loop_analise_roleta(nome))
-            
-            msg = (
-                "✅ **BOT LIGADO!**\n\n"
-                f"🎰 {len(botauto.roletas)} mesas\n"
-                "📊 3 estratégias simultâneas\n"
-                "Use /status para ver"
-            )
-            await update.message.reply_text(msg, parse_mode="Markdown")
-            print("[✓] Bot inicializado!")
-        else:
-            await update.message.reply_text("❌ Erro")
-            
-    except Exception as e:
-        await update.message.reply_text(f"❌ {str(e)}")
-
-async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not botauto.ativo:
-        await update.message.reply_text("❌ Desligado")
-        return
-    
-    msg = "✅ **STATUS - 3 ESTRATÉGIAS**\n\n"
-    
-    for nome, roleta in botauto.roletas.items():
-        msg += (
-            f"🎰 {nome}\n"
-            f"   🎨 Cores: {roleta.cores.contagem}x\n"
-            f"   🔢 Pares: {roleta.pares.contagem}x\n"
-            f"   📊 Altas: {roleta.altas.contagem}x\n"
-        )
-    
-    await update.message.reply_text(msg, parse_mode="Markdown")
+        await update.message.reply_text("✅ **BOT LIGADO!**\n\n🎰 14 mesas\n📊 3 estratégias")
 
 async def parar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     botauto.parar()
-    await update.message.reply_text("⏹️ Parado")
+    await update.message.reply_text("⏹️ **Parado**")
 
 def main():
-    print("\n" + "="*60)
-    print("🎰 E-GAMES - ROLETA UK v9.0")
-    print("3 ESTRATÉGIAS SIMULTÂNEAS")
-    print("="*60 + "\n")
+    print("\n🎰 E-GAMES - ROLETA UK v11.0 FINAL\n")
     
     app = ApplicationBuilder().token(TOKEN).build()
-    
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("iniciar", iniciar))
-    app.add_handler(CommandHandler("status", status))
     app.add_handler(CommandHandler("parar", parar))
     
-    print("[✓] Aguardando comandos...\n")
+    print("[✓] Bot pronto!\n")
     app.run_polling()
 
 if __name__ == "__main__":
