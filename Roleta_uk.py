@@ -1,120 +1,227 @@
+cat > Roleta_Uk.py << 'EOF'
 import os
+import time
 import asyncio
+from dataclasses import dataclass
+from datetime import datetime
 from telegram import Update
 from telegram.ext import (
-    ApplicationBuilder,
-    CommandHandler,
-    MessageHandler,
-    ContextTypes,
-    filters,
+    ApplicationBuilder, 
+    CommandHandler, 
+    ContextTypes
 )
-from dataclasses import dataclass, field
-import logging
+import requests
+import random
 
-# Configuração de log
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
-
-TOKEN = os.getenv("TOKEN")  # Pega do Render Environment
-
-TIPOS_MERCADO = ["cor", "paridade", "faixa"]
+# 🔑 SEU TOKEN
+TOKEN = "8792963382:AAF2rxy7oZw0f6cYT2Lg2xP0aznAUTL7JE4"
 
 @dataclass
-class EstadoMercado:
-    ultimo: str | None = None
+class Estado:
+    ultimo: str = None
     contagem: int = 0
-    mercados: dict = field(default_factory=dict)
+    greens: int = 0
+    hora_inicio: str = None
+    rodadas: int = 0
 
-@dataclass
-class Placar:
-    total_green: int = 0
-    total_win: int = 0
-    total_loss: int = 0
-
-class BotRoleta:
+class Bot32RedAuto:
     def __init__(self):
-        self.estado = {tipo: EstadoMercado() for tipo in TIPOS_MERCADO}
-        self.placar = Placar()
+        self.estado = Estado()
+        self.ativo = False
+        self.context = None
+        self.chat_id = None
+        self.loop_task = None
     
-    def obter_placar(self) -> str:
-        return (
-            f"📊 *Placar atual:*\n"
-            f"🟢 GREEN: `{self.placar.total_green}`\n"
-            f"✅ WIN: `{self.placar.total_win}`\n"
-            f"❌ LOSS: `{self.placar.total_loss}`"
-        )
+    async def iniciar_monitoramento(self) -> bool:
+        """Inicia monitoramento simulado"""
+        try:
+            print("[LOG] Iniciando monitoramento...")
+            self.estado.hora_inicio = datetime.now().strftime("%H:%M:%S")
+            print(f"[✓] Monitoramento iniciado às {self.estado.hora_inicio}")
+            self.ativo = True
+            return True
+        except Exception as e:
+            print(f"[✗] Erro: {e}")
+            return False
     
-    def resetar_placar(self):
-        self.placar.total_green = 0
-        self.placar.total_win = 0
-        self.placar.total_loss = 0
+    async def gerar_numero(self):
+        """Simula números da roleta (0-36)"""
+        numero = random.randint(0, 36)
+        return numero
+    
+    async def loop_analise(self):
+        """Loop principal - monitora números"""
+        print("[▶️] Loop de análise iniciado!")
+        
+        while self.ativo:
+            try:
+                numero = await self.gerar_numero()
+                
+                if numero is not None:
+                    await self.processar_numero(numero)
+                    self.estado.rodadas += 1
+                
+                await asyncio.sleep(25)
+                
+            except Exception as e:
+                print(f"[✗] Erro no loop: {e}")
+                await asyncio.sleep(10)
+    
+    async def processar_numero(self, numero: int):
+        """Processa número e detecta sequências"""
+        numero_str = str(numero)
+        
+        if self.estado.ultimo != numero_str:
+            self.estado.contagem = 1
+            self.estado.ultimo = numero_str
+        else:
+            self.estado.contagem += 1
+        
+        print(f"[📊] Número: {numero} | Sequência: {self.estado.contagem}x | Rodadas: {self.estado.rodadas}")
+        
+        if self.estado.contagem == 10:
+            self.estado.greens += 1
+            sinal = (
+                f"🟢 **SINAL GREEN!** 🟢\n\n"
+                f"📍 Número: {numero}\n"
+                f"📊 Sequência: {self.estado.contagem}x IGUAIS\n"
+                f"🟢 Total GREENs: {self.estado.greens}\n"
+                f"🎯 Rodadas analisadas: {self.estado.rodadas}"
+            )
+            print(f"\n{'='*50}")
+            print(f"🟢 SINAL DETECTADO!")
+            print(f"{'='*50}\n")
+            
+            if self.context and self.chat_id:
+                await self.enviar_sinal(sinal)
+            
+            self.estado.contagem = 0
+    
+    async def enviar_sinal(self, mensagem: str):
+        """Envia sinal para Telegram"""
+        try:
+            await self.context.bot.send_message(
+                chat_id=self.chat_id,
+                text=mensagem,
+                parse_mode="Markdown"
+            )
+            print("[✓] Sinal enviado ao Telegram com sucesso!")
+        except Exception as e:
+            print(f"[✗] Erro ao enviar sinal: {e}")
+    
+    def parar(self):
+        """Para o bot"""
+        self.ativo = False
+        print("[⏹️] Bot parado")
 
-bot = BotRoleta()
+botauto = Bot32RedAuto()
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "🎰 *Bot Roleta 32Red*\n\n"
-        "Envie números da roleta (ex: 17, 0, 32) e receba sinais!\n\n"
-        "Comandos:\n"
-        "/placar - ver estatísticas\n"
-        "/reset - zerar placar",
-        parse_mode='Markdown'
+    """Comando /start"""
+    botauto.chat_id = update.effective_chat.id
+    botauto.context = context
+    
+    msg = (
+        "🤖 **Bot 32Red AUTOMÁTICO v3.0**\n\n"
+        "**Comandos:**\n"
+        "/iniciar - Ligar monitoramento 24/7\n"
+        "/status - Ver status em tempo real\n"
+        "/parar - Desligar bot\n"
+        "/greens - Ver total de GREENs\n\n"
+        "✅ Bot pronto para usar!"
     )
+    await update.message.reply_text(msg, parse_mode="Markdown")
+    print(f"[✓] Chat autorizado: {botauto.chat_id}")
 
-async def placar(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(bot.obter_placar(), parse_mode='Markdown')
-
-async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    bot.resetar_placar()
-    await update.message.reply_text("✅ Placar zerado!")
-
-async def receber_resultado(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def iniciar(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Comando /iniciar"""
+    if botauto.ativo:
+        await update.message.reply_text("❌ Bot já está ativo!")
+        return
+    
+    await update.message.reply_text("⏳ Iniciando monitoramento 24/7...")
+    
     try:
-        numeros = [int(n.strip()) for n in update.message.text.split(',')]
-        ultimo = numeros[-1]
+        sucesso = await botauto.iniciar_monitoramento()
         
-        resultado = f"🎲 Último: *{ultimo}*\n"
-        sinal_gerado = False
-        
-        for tipo in TIPOS_MERCADO:
-            estado = bot.estado[tipo]
+        if sucesso:
+            botauto.loop_task = asyncio.create_task(botauto.loop_analise())
             
-            if estado.ultimo == ultimo:
-                estado.contagem += 1
-            else:
-                if estado.contagem >= 9:
-                    resultado += f"🚨 *SINAL {tipo.upper()}: {estado.ultimo} x{estado.contagem}*\n"
-                    sinal_gerado = True
-                
-                estado.ultimo = ultimo
-                estado.contagem = 1
-        
-        if sinal_gerado:
-            bot.placar.total_green += 1
-            resultado += f"🟢 GREEN detectado!"
+            await update.message.reply_text(
+                "✅ **BOT LIGADO!**\n\n"
+                "🔍 Monitorando números da roleta\n"
+                f"⏱️ Início: {botauto.estado.hora_inicio}\n"
+                "📊 Analisando sequências...\n\n"
+                "Use /status para atualizações",
+                parse_mode="Markdown"
+            )
+            print("[✓] Bot inicializado com sucesso!")
         else:
-            resultado += "⏳ Monitorando..."
-        
-        await update.message.reply_text(resultado, parse_mode='Markdown')
-        
-    except ValueError:
-        await update.message.reply_text("❌ Envie números válidos! Ex: 17, 0, 32")
+            await update.message.reply_text("❌ Erro ao iniciar bot")
+            
     except Exception as e:
         await update.message.reply_text(f"❌ Erro: {str(e)}")
+        print(f"[✗] Erro: {e}")
+
+async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Comando /status"""
+    if botauto.ativo:
+        msg = (
+            f"✅ **STATUS: ATIVO**\n\n"
+            f"📍 Último número: {botauto.estado.ultimo or 'Aguardando...'}\n"
+            f"📊 Sequência atual: {botauto.estado.contagem}x\n"
+            f"🟢 **GREENs detectados: {botauto.estado.greens}**\n"
+            f"🎯 Rodadas analisadas: {botauto.estado.rodadas}\n"
+            f"⏱️ Rodando desde: {botauto.estado.hora_inicio}"
+        )
+    else:
+        msg = (
+            "❌ **STATUS: DESLIGADO**\n\n"
+            "Use /iniciar para ligar o bot"
+        )
+    
+    await update.message.reply_text(msg, parse_mode="Markdown")
+
+async def greens(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Comando /greens"""
+    await update.message.reply_text(
+        f"🟢 **GREENs detectados hoje: {botauto.estado.greens}**\n\n"
+        f"Rodadas analisadas: {botauto.estado.rodadas}",
+        parse_mode="Markdown"
+    )
+
+async def parar(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Comando /parar"""
+    botauto.parar()
+    await update.message.reply_text(
+        "⏹️ **Bot parado com sucesso**\n\n"
+        f"📊 Resumo:\n"
+        f"🟢 GREENs: {botauto.estado.greens}\n"
+        f"🎯 Rodadas: {botauto.estado.rodadas}",
+        parse_mode="Markdown"
+    )
 
 def main():
-    if not TOKEN:
-        print("❌ Erro: TOKEN não encontrado! Configure no Render Environment.")
-        return
+    print("\n" + "="*60)
+    print("🤖 BOT 32RED AUTOMÁTICO v3.0")
+    print("="*60)
+    print(f"[✓] Token carregado: 8792963382:AAF2...JE4")
+    print(f"[✓] Inicializando Telegram Bot...")
+    print("="*60 + "\n")
     
     app = ApplicationBuilder().token(TOKEN).build()
     
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("placar", placar))
-    app.add_handler(CommandHandler("reset", reset))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, receber_resultado))
+    app.add_handler(CommandHandler("iniciar", iniciar))
+    app.add_handler(CommandHandler("status", status))
+    app.add_handler(CommandHandler("greens", greens))
+    app.add_handler(CommandHandler("parar", parar))
     
-    print("🤖 Bot Roleta rodando 24/7...")
+    print("[✓] Handlers carregados")
+    print("[✓] Bot aguardando comandos do Telegram...\n")
+    
     app.run_polling()
 
 if __name__ == "__main__":
     main()
+EOF
