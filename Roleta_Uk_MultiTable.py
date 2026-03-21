@@ -29,14 +29,23 @@ class BotMultiRoleta:
         self.chat_id = None
         
         self.roletas_nomes = [
-            "Roleta 32vermelha",
-            "Roleta Relâmpago",
-            "Auto-Roulette",
-            "Roleta VIP",
-            "Roleta Dragonara",
-            "Roleta Francesa",
-            "Roleta Americana",
-            "Mega Roleta",
+            self.roletas_nomes = [
+    "Roleta 32vermelha",
+    "Roleta Relâmpago",
+    "Auto-Roulette",
+    "Roleta VIP",
+    "Roleta Dragonara",
+    "Roleta Francesa",
+    "Roleta Americana",
+    "Mega Roleta",
+    "Red Door Roulette",
+    "Roulette Macao",
+    "Gold Vault Roulette",
+    "XXXtreme Lightning Roulette",
+    "Speed Auto Roulette",
+    "Power Up Roulette",
+    "Lightning Roulette",
+]
         ]
         
         for nome in self.roletas_nomes:
